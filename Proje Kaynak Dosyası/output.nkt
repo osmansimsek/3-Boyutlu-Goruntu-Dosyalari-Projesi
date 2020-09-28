@@ -1,0 +1,40 @@
+Islem 1: 
+problemli.nkt dosyadaki 1. satirdaki noktalar dosya format kismi hatali yazilmistir. 
+problemli.nkt dosyadaki 2. satirdaki versiyon kismi hatali yazilmistir. 
+problemli.nkt dosyadaki 3. satirdaki alanlar kismi hatali yazilmistir. 
+problemli.nkt dosyadaki nokta sayisi yanlis verilmistir. 
+problemli.nkt dosyasinda ki nokta sayisi verilen nokta sayisina esit degildir.
+ 
+Islem 2: 
+binaryXYZ.nkt dosyasi: 
+En Uzak Noktalar: 
+101.599998 101.349998 101.099998
+100.250000 100.000000 99.750000
+En Yakin Noktalar: 
+101.449997 101.199997 100.949997
+101.300003 101.050003 100.800003
+
+binaryXYZRGB.nkt dosyasi: 
+En Uzak Noktalar: 
+101.599998 101.349998 101.099998 1 2 3
+100.250000 100.000000 99.750000 10 20 30
+En Yakin Noktalar: 
+101.449997 101.199997 100.949997 2 4 6
+101.300003 101.050003 100.800003 3 6 9
+
+testVerileri.nkt dosyasi: 
+En Uzak Noktalar: 
+100.000000 100.000000 100.000000
+0.000000 0.000000 0.000000
+En Yakin Noktalar: 
+100.000000 100.000000 100.000000
+75.000000 75.000000 75.000000
+
+veriler1.nkt dosyasi: 
+En Uzak Noktalar: 
+4.981094 0.087787 99.749023 81 178 204
+94.957733 98.022102 0.558709 10 192 126
+En Yakin Noktalar: 
+97.079498 33.694393 22.512339 76 44 81
+97.035797 33.674644 22.449869 182 107 105
+

@@ -1,0 +1,1339 @@
+#include <stdint.h>
+#include <stdio.h>
+#include <dirent.h>
+#include <string.h>
+#include <stdlib.h>
+#include <math.h>
+
+struct baslikbilgileri
+{
+    char dosyaformat[25];
+    char version[10];
+    char alanlar[30];
+    char noktalar[20];
+    char dataturu[15];
+    int noktasayisi;
+};
+struct sayisalbilgiler
+{
+    struct baslikbilgileri baslikdegeri;
+    float *xdeger;
+    float *ydeger;
+    float *zdeger;
+    int *rdeger;
+    int *gdeger;
+    int *bdeger;
+};
+
+// butun dosya bilgilerinin tutuldugu structir. (sayisalbilgiler).
+struct rgbbinarycek
+{
+    float x;
+    float y;
+    float z;
+    int r;
+    int g;
+    int b;
+};
+struct binarycek
+{
+    float cx;
+    float cy;
+    float cz;
+};
+// binary okumasi yaparken kullanilan structlardir.
+
+const char kontroldosyaformat[25]="# Noktalar dosya format\n";
+const char kontrolversion[10]="VERSION 1\n";
+const char kontrolalanlar_v1[30]="ALANLAR x y z r g b\n";
+const char kontrolalanlar_v2[30]="ALANLAR x y z\n";
+const char kontrolnoktalar[20]="NOKTALAR";
+const char kontroldataturu_v1[15]="DATA ascii\n";
+const char kontroldataturu_v2[15]="DATA binary\n";
+
+// ilk 5 satir karsilastirmasi yaparken kullanilan const charlar dir.
+
+struct sayisalbilgiler *liste1;
+struct sayisalbilgiler *liste2;
+
+char asciihatatut[200][200];
+char binaryhatatut[200][200];
+char asciidosyaadi[100][30];
+char binarydosyaadi[100][30];
+char saglambinarydosyaadi[100][30];
+char saglamasciidosyaadi[100][30];
+int asciisayacbilgisi=0;
+int binarysayacbilgisi=0;
+int saglamasciisayac=0;
+int saglambinarysayac=0;
+int asciihatatutsayaci=0;
+int binaryhatautsayaci=0;
+
+// globalde tuttugum hem binary icin hemde ascii icin degiskenlerdir.
+
+void dosyabul();
+void ascii();
+void binary();
+void dosyaoku();
+void menuisleri();
+
+// toplam 5 tane ayri fonskiyon kullandim ve prototip olarak tanimladim main fonksiyonun ustune.
+
+int main()
+{
+    printf("\n");
+    printf("           3 BOYUTLU GORUNTU DOSYALARI PROJESI\n\n\n");
+    printf("islem 1: Dosya Kontrolu\n");
+    printf("islem 2: En Yakin/Uzak Noktalar\n");
+    printf("islem 3: Kup\n");
+    printf("islem 4: Kure\n");
+    printf("islem 5: Nokta Uzakliklari\n");
+    printf("islem 6: Cikis\n\n");
+
+// menu islemlerin arayuz kisminin basladigi yerdir ve tum islemler dosyaoku fonksiyonu ile basliyor.
+
+    dosyaoku();
+
+    return 0;
+}
+
+void dosyabul ()
+{
+    // dosyaoku fonksiyonu ile caðirilan fonskiyondur ve dirent.h kutuphanesi kullanýlarak yazýldý.
+    // fonskiyonda main klasorunun icinde ki .nkt uzantili dosyalari cekmeye yarar.
+    char *ayrac =".";
+    char *kelimeayir;
+    char isimtut[20][20];
+    int sayac1=0, sayac2=0, sayac3=0;
+
+    DIR *klasor;
+    struct dirent *klasorStructi;
+
+    klasor=opendir(".");
+    if(opendir == NULL)
+    {
+        exit(1);
+    }
+    // klasorun acildigi yerdir.
+    while((klasorStructi=readdir(klasor))!= NULL)
+    {
+        // output ismi varsa acmicak sekilde ayarlandi.
+        if(strstr(klasorStructi->d_name,"output")!=NULL)
+            continue;
+        kelimeayir=strtok(klasorStructi->d_name,ayrac);
+        while(kelimeayir!=NULL)
+        {
+            strcpy(isimtut[sayac3],kelimeayir);
+            kelimeayir=strtok(NULL,ayrac);
+        }
+
+        if(strcmp(isimtut[sayac3],"nkt")==0)
+        {
+            // .nkt uzantisini bulan kisim
+            if(strstr(klasorStructi->d_name,"binary")!=NULL)
+            {
+                strcpy(binarydosyaadi[sayac1],klasorStructi->d_name);
+                sayac1++;
+                // binary dosyalarinin adlarini ve adetinin bulundugu kisimdir.
+            }
+            else
+            {
+                // ascii dosyalarinin adlarini ve adetinin bulundugu kisimdir.
+                strcpy(asciidosyaadi[sayac2],klasorStructi->d_name);
+                sayac2++;
+            }
+        }
+        sayac3++;
+    }
+
+    asciisayacbilgisi=sayac2;
+    binarysayacbilgisi=sayac1;
+    closedir(klasor);
+}
+
+void dosyaoku()
+{
+    // ana fonksiyonumuzdur ve tum islemler burda gerceklesmektedir.
+    dosyabul();
+    ascii();
+    binary();
+    menuisleri();
+
+}
+void binary()
+{
+    // binarynin okundugu kisimdir.
+    FILE *dosya;
+
+    liste2 = malloc(binarysayacbilgisi*(sizeof(struct sayisalbilgiler )));
+    int z;
+    // structaki pointerlarimiza yer actigimiz kisimdir.
+    for(z=0; z<binarysayacbilgisi; z++)
+    {
+        liste2[z].xdeger=malloc(2*sizeof(float));
+        liste2[z].ydeger=malloc(2*sizeof(float));
+        liste2[z].zdeger=malloc(2*sizeof(float));
+        liste2[z].rdeger=malloc(2*sizeof(int));
+        liste2[z].gdeger=malloc(2*sizeof(int));
+        liste2[z].bdeger=malloc(2*sizeof(int));
+    }
+
+    char noktalaryazi[50];
+    int i;
+    // binary dosyalarini dolasip islem yapildigi kisimdir.
+    for(i=0; i<binarysayacbilgisi; i++)
+    {
+        int satirsayisi=0;
+        int alanlarkontroldegiskeni1=0,alanlarkontroldegiskeni2=0;
+        int datakontroldegiskeni2=0;
+        int hatakontrolsayaci=0,noktasayaci=0;
+
+        char kisim[70];
+        char kisim1[20];
+        char kisim2[20];
+
+        const char *ayrac=" ";
+        char *kelimeayir;
+        char path[20]=".nkt";
+
+        strcat(binarydosyaadi[i],path);
+        dosya=fopen(binarydosyaadi[i],"rb");
+
+        if(dosya==NULL)
+        {
+            printf("%s dosyasi acilmadi.\n",binarydosyaadi[i]);
+            hatakontrolsayaci=1;
+        }
+        // satir satir okundugu kisimdir. ilk 5 satir icin kontrol yapilir ve 5 satridan sonra while durur. sayisal degerler baska sekilde alinir.
+        while(fgets(kisim,70,dosya)!=NULL)
+        {
+            satirsayisi++;
+            switch(satirsayisi)
+            {
+
+            case 1:
+
+                if(strcmp(kisim,kontroldosyaformat)!= 0)
+                {
+                    sprintf(binaryhatatut[binaryhatautsayaci],"%s dosyadaki %d. satirdaki noktalar dosya format kismi hatali yazilmistir.",binarydosyaadi[i],satirsayisi);
+                    binaryhatautsayaci++;
+                    hatakontrolsayaci=1;
+                }
+
+                else
+                {
+                    strcpy(liste2[i].baslikdegeri.dosyaformat,kisim);
+                }
+
+                break;
+
+            case 2:
+
+                if(strcmp(kisim,kontrolversion)!= 0)
+                {
+                    sprintf(binaryhatatut[asciihatatutsayaci],"%s dosyadaki %d. satirdaki versiyon kismi hatali yazilmistir.",binarydosyaadi[i],satirsayisi);
+                    hatakontrolsayaci=1;
+                    binaryhatautsayaci++;
+                }
+                else
+                {
+                    strcpy(liste2[i].baslikdegeri.version,kisim);
+                }
+                break;
+
+            case 3:
+
+                if(strcmp(kisim,kontrolalanlar_v1)!= 0)
+                {
+                    if(strcmp(kisim,kontrolalanlar_v2)!= 0)
+                    {
+                        sprintf(binaryhatatut[binaryhatautsayaci],"%s dosyadaki %d. satirdaki alanlar kismi hatali yazilmistir.",binarydosyaadi[i],satirsayisi);
+                        hatakontrolsayaci=1;
+                        binaryhatautsayaci++;
+                    }
+                    else
+                    {
+                        strcpy(liste2[i].baslikdegeri.alanlar,kisim);
+                        alanlarkontroldegiskeni2=2;
+                    }
+                }
+                else
+                {
+                    strcpy(liste2[i].baslikdegeri.alanlar,kisim);
+                    alanlarkontroldegiskeni1=1;
+                }
+                break;
+
+            case 4:
+
+                sscanf(kisim,"%s %s",kisim1,kisim2);
+
+                if(strcmp(kontrolnoktalar,kisim1)!=0)
+                {
+                    sprintf(binaryhatatut[binaryhatautsayaci],"%s dosyadaki %d. satirdaki noktalar kismi hatali yazilmistir.",binarydosyaadi[i],satirsayisi);
+                    hatakontrolsayaci=1;
+                    binaryhatautsayaci++;
+                }
+
+                else
+                {
+                    strcpy(liste2[i].baslikdegeri.noktalar,kisim1);
+                    liste2[i].baslikdegeri.noktasayisi=atoi(kisim2);
+
+                    sprintf(noktalaryazi,"%d",liste2[i].baslikdegeri.noktasayisi);
+
+                    if(strcmp(noktalaryazi,kisim2)!=0)
+                    {
+                        sprintf(binaryhatatut[binaryhatautsayaci],"%s dosyadaki nokta sayisi yanlis verilmistir.",binarydosyaadi[i]);
+                        hatakontrolsayaci=1;
+                        binaryhatautsayaci++;
+                    }
+                    else
+                        liste2[i].baslikdegeri.noktasayisi=atoi(kisim2);
+
+                }
+                break;
+
+            case 5:
+
+                if(strcmp(kontroldataturu_v2,kisim)!=0)
+                {
+                    sprintf(binaryhatatut[binaryhatautsayaci],"%s dosyadaki %d. satirdaki data türü kismi hatali yazilmistir",binarydosyaadi[i],satirsayisi);
+                    hatakontrolsayaci=1;
+                    binaryhatautsayaci++;
+
+                }
+                else
+                {
+                    strcpy(liste2[i].baslikdegeri.dataturu,kisim);
+                    datakontroldegiskeni2=2;
+                }
+
+                break;
+
+            default :
+                break;
+
+            }
+            if(satirsayisi==5)
+                break;
+        }
+        // sayisal verilerin cekildigi yerdir.
+        // data binary
+        if(datakontroldegiskeni2==2)
+        {
+            // x y z r g b
+            if(alanlarkontroldegiskeni1==1)
+            {
+                while(1)
+                {
+                    size_t sayi;
+                    struct rgbbinarycek binoku;
+                    sayi = fread(&binoku, sizeof(binoku), 1, dosya);
+                    if(sayi < 1)
+                    {
+                        break;
+                    }
+                    liste2[i].xdeger[noktasayaci] = binoku.x;
+                    liste2[i].ydeger[noktasayaci] = binoku.y;
+                    liste2[i].zdeger[noktasayaci] = binoku.z;
+                    liste2[i].rdeger[noktasayaci] = binoku.r;
+                    liste2[i].gdeger[noktasayaci] = binoku.g;
+                    liste2[i].bdeger[noktasayaci] = binoku.b;
+                    noktasayaci++;
+                    liste2[i].xdeger=realloc(liste2[i].xdeger,(10*noktasayaci)*sizeof(float));
+                    liste2[i].ydeger=realloc(liste2[i].ydeger,(10*noktasayaci)*sizeof(float));
+                    liste2[i].zdeger=realloc(liste2[i].zdeger,(10*noktasayaci)*sizeof(float));
+                    liste2[i].rdeger=realloc(liste2[i].rdeger,(10*noktasayaci)*sizeof(int));
+                    liste2[i].gdeger=realloc(liste2[i].gdeger,(10*noktasayaci)*sizeof(int));
+                    liste2[i].bdeger=realloc(liste2[i].bdeger,(10*noktasayaci)*sizeof(int));
+
+                }
+            }
+            // x y z
+            if(alanlarkontroldegiskeni2==2)
+            {
+
+                while(1)
+                {
+                    size_t sayi;
+                    struct binarycek binoku2;
+                    sayi = fread(&binoku2, sizeof(binoku2), 1, dosya);
+
+                    if(sayi < 1)
+                    {
+                        break;
+                    }
+                    liste2[i].xdeger[noktasayaci] = binoku2.cx;
+                    liste2[i].ydeger[noktasayaci] = binoku2.cy;
+                    liste2[i].zdeger[noktasayaci] = binoku2.cz;
+                    noktasayaci++;
+                    liste2[i].xdeger=realloc(liste2[i].xdeger,(10*noktasayaci)*sizeof(float));
+                    liste2[i].ydeger=realloc(liste2[i].ydeger,(10*noktasayaci)*sizeof(float));
+                    liste2[i].zdeger=realloc(liste2[i].zdeger,(10*noktasayaci)*sizeof(float));
+
+                }
+            }
+        }
+
+        if(noktasayaci!=liste2[i].baslikdegeri.noktasayisi)
+        {
+            sprintf(binaryhatatut[binaryhatautsayaci],"%s dosyasinda ki nokta sayisi verilen nokta sayisina esit degildir.\n",binarydosyaadi[i]);
+            hatakontrolsayaci=1;
+            binaryhatautsayaci++;
+        }
+
+        if(hatakontrolsayaci==0)
+        {
+            strcpy(saglambinarydosyaadi[saglambinarysayac],binarydosyaadi[i]);
+            saglambinarysayac++;
+        }
+
+        fclose(dosya);
+    }
+}
+
+void ascii()
+{
+    // ascii dosyalarinin cekildigi yerdir.
+    FILE *dosya;
+
+    liste1 = malloc(asciisayacbilgisi*(sizeof(struct sayisalbilgiler )));
+    int z;
+    for(z=0; z<asciisayacbilgisi; z++)
+    {
+        liste1[z].xdeger=malloc(2*sizeof(float));
+        liste1[z].ydeger=malloc(2*sizeof(float));
+        liste1[z].zdeger=malloc(2*sizeof(float));
+        liste1[z].rdeger=malloc(2*sizeof(int));
+        liste1[z].gdeger=malloc(2*sizeof(int));
+        liste1[z].bdeger=malloc(2*sizeof(int));
+    }
+
+    char noktalaryazi[50];
+    int i;
+    // for ile tum ascii dosyalarinin iclerinin dolasilip islem yapildigi yerdir.
+    for(i=0; i<asciisayacbilgisi; i++)
+    {
+        int satirsayisi=0;
+        int alanlarkontroldegiskeni1=0,alanlarkontroldegiskeni2=0;
+        int datakontroldegiskeni1=0;
+        int hatakontrolsayaci=0;
+
+        char kisim[70];
+        char kisim1[20];
+        char kisim2[20];
+
+        const char *ayrac=" ";
+        char *kelimeayir;
+        char path[20]=".nkt";
+
+        strcat(asciidosyaadi[i],path);
+        dosya=fopen(asciidosyaadi[i],"r");
+
+        if(dosya==NULL)
+        {
+            printf("%s dosyasi acilmadi.\n",asciidosyaadi[i]);
+            hatakontrolsayaci=1;
+        }
+        // satir satir okundugu kisimdir. ilk 5 satir icin kontrol yapilir ve 5 satridan sonra sayisal degerler strtok yontemi ile alinmaya baslanir.
+        while(fgets(kisim,70,dosya)!=NULL)
+        {
+            satirsayisi++;
+            switch(satirsayisi)
+            {
+
+            case 1:
+
+                if(strcmp(kisim,kontroldosyaformat)!= 0)
+                {
+                    sprintf(asciihatatut[asciihatatutsayaci],"%s dosyadaki %d. satirdaki noktalar dosya format kismi hatali yazilmistir.",asciidosyaadi[i],satirsayisi);
+                    asciihatatutsayaci++;
+                    hatakontrolsayaci=1;
+                }
+
+                else
+                {
+                    strcpy(liste1[i].baslikdegeri.dosyaformat,kisim);
+                }
+
+                break;
+
+            case 2:
+
+                if(strcmp(kisim,kontrolversion)!= 0)
+                {
+                    sprintf(asciihatatut[asciihatatutsayaci],"%s dosyadaki %d. satirdaki versiyon kismi hatali yazilmistir.",asciidosyaadi[i],satirsayisi);
+                    hatakontrolsayaci=1;
+                    asciihatatutsayaci++;
+                }
+                else
+                {
+                    strcpy(liste1[i].baslikdegeri.version,kisim);
+                }
+                break;
+
+            case 3:
+
+                if(strcmp(kisim,kontrolalanlar_v1)!= 0)
+                {
+                    if(strcmp(kisim,kontrolalanlar_v2)!= 0)
+                    {
+                        sprintf(asciihatatut[asciihatatutsayaci],"%s dosyadaki %d. satirdaki alanlar kismi hatali yazilmistir.",asciidosyaadi[i],satirsayisi);
+                        hatakontrolsayaci=1;
+                        asciihatatutsayaci++;
+                    }
+                    else
+                    {
+                        strcpy(liste1[i].baslikdegeri.alanlar,kisim);
+                        alanlarkontroldegiskeni2=2;
+                    }
+                }
+                else
+                {
+                    strcpy(liste1[i].baslikdegeri.alanlar,kisim);
+                    alanlarkontroldegiskeni1=1;
+                }
+                break;
+
+            case 4:
+
+                sscanf(kisim,"%s %s",kisim1,kisim2);
+
+                if(strcmp(kontrolnoktalar,kisim1)!=0)
+                {
+                    sprintf(asciihatatut[asciihatatutsayaci],"%s dosyadaki %d. satirdaki noktalar kismi hatali yazilmistir.",asciidosyaadi[i],satirsayisi);
+                    hatakontrolsayaci=1;
+                    asciihatatutsayaci++;
+                }
+
+                else
+                {
+                    strcpy(liste1[i].baslikdegeri.noktalar,kisim1);
+                    liste1[i].baslikdegeri.noktasayisi=atoi(kisim2);
+
+                    sprintf(noktalaryazi,"%d",liste1[i].baslikdegeri.noktasayisi);
+
+                    if(strcmp(noktalaryazi,kisim2)!=0)
+                    {
+                        sprintf(asciihatatut[asciihatatutsayaci],"%s dosyadaki nokta sayisi yanlis verilmistir.",asciidosyaadi[i]);
+                        hatakontrolsayaci=1;
+                        asciihatatutsayaci++;
+                    }
+                    else
+                        liste1[i].baslikdegeri.noktasayisi=atoi(kisim2);
+
+                }
+                break;
+
+            case 5:
+
+                if(strcmp(kontroldataturu_v1,kisim)!=0)
+                {
+                    sprintf(asciihatatut[asciihatatutsayaci],"%s dosyadaki %d. satirdaki data türü kismi hatali yazilmistir",asciidosyaadi[i],satirsayisi);
+                    hatakontrolsayaci=1;
+                    asciihatatutsayaci++;
+
+                }
+                else
+                {
+                    strcpy(liste1[i].baslikdegeri.dataturu,kisim);
+                    datakontroldegiskeni1=1;
+                }
+
+                break;
+
+            default :
+                break;
+
+            }
+
+            if(satirsayisi>5)
+            {
+                // data ascii
+                if(datakontroldegiskeni1==1)
+                {
+                    int strtoksayac=0;
+                    // x y z r g b
+                    if(alanlarkontroldegiskeni1==1)
+                    {
+                        kelimeayir=strtok(kisim,ayrac);
+                        while(kelimeayir!=NULL)
+                        {
+                            strtoksayac++;
+                            float floatdeger=0;
+                            int intdeger=0;
+                            if(strtoksayac==1)
+                            {
+                                floatdeger=atof(kelimeayir);
+                                liste1[i].xdeger[satirsayisi-6]=floatdeger;
+                                liste1[i].xdeger=realloc(liste1[i].xdeger,(satirsayisi)*sizeof(float));
+                            }
+                            if(strtoksayac==2)
+                            {
+                                floatdeger=atof(kelimeayir);
+                                liste1[i].ydeger[satirsayisi-6]=floatdeger;
+                                liste1[i].ydeger=realloc(liste1[i].ydeger,(satirsayisi)*sizeof(float));
+                            }
+                            if(strtoksayac==3)
+                            {
+                                floatdeger=atof(kelimeayir);
+                                liste1[i].zdeger[satirsayisi-6]=floatdeger;
+                                liste1[i].zdeger=realloc(liste1[i].zdeger,(satirsayisi)*sizeof(float));
+                            }
+                            if(strtoksayac==4)
+                            {
+                                intdeger=atoi(kelimeayir);
+                                liste1[i].rdeger[satirsayisi-6]=intdeger;
+                                liste1[i].rdeger=realloc(liste1[i].rdeger,(satirsayisi)*sizeof(int));
+                            }
+                            if(strtoksayac==5)
+                            {
+                                intdeger=atoi(kelimeayir);
+                                liste1[i].gdeger[satirsayisi-6]=intdeger;
+                                liste1[i].gdeger=realloc(liste1[i].gdeger,(satirsayisi)*sizeof(int));
+                            }
+                            if(strtoksayac==6)
+                            {
+                                intdeger=atoi(kelimeayir);
+                                liste1[i].bdeger[satirsayisi-6]=intdeger;
+                                liste1[i].bdeger=realloc(liste1[i].bdeger,(satirsayisi)*sizeof(int));
+                            }
+                            kelimeayir=strtok(NULL,ayrac);
+                        }
+                        if(strtoksayac<6)
+                        {
+                            sprintf(asciihatatut[asciihatatutsayaci],"%s deki dosyadaki %d. satirda x y z r g b degerleri eksik girilmistir.",asciidosyaadi[i],satirsayisi);
+                            asciihatatutsayaci++;
+                        }
+                        if(strtoksayac<6 && strtoksayac>3)
+                        {
+                            sprintf(asciihatatut[asciihatatutsayaci],"%s deki dosyadaki %d. satirda r g b degerleri eksik girilmistir.",asciidosyaadi[i],satirsayisi);
+                            asciihatatutsayaci++;
+                        }
+                        if(strtoksayac>6)
+                        {
+                            sprintf(asciihatatut[asciihatatutsayaci],"%s deki dosyadaki %d. satirda x y z r g b degerlerinin disinda deger girilmistir.",asciidosyaadi[i],satirsayisi);
+                            asciihatatutsayaci++;
+                        }
+                    }
+                    // x y z
+                    if(alanlarkontroldegiskeni2==2)
+                    {
+                        kelimeayir=strtok(kisim,ayrac);
+                        while(kelimeayir!=NULL)
+                        {
+                            strtoksayac++;
+                            float floatdeger=0;
+                            int intdeger=0;
+                            if(strtoksayac==1)
+                            {
+                                floatdeger=atof(kelimeayir);
+                                liste1[i].xdeger[satirsayisi-6]=floatdeger;
+                                liste1[i].xdeger=realloc(liste1[i].xdeger,(satirsayisi)*sizeof(float));
+                            }
+                            if(strtoksayac==2)
+                            {
+                                floatdeger=atof(kelimeayir);
+                                liste1[i].ydeger[satirsayisi-6]=floatdeger;
+                                liste1[i].ydeger=realloc(liste1[i].ydeger,(satirsayisi)*sizeof(float));
+                            }
+                            if(strtoksayac==3)
+                            {
+                                floatdeger=atof(kelimeayir);
+                                liste1[i].zdeger[satirsayisi-6]=floatdeger;
+                                liste1[i].zdeger=realloc(liste1[i].zdeger,(satirsayisi)*sizeof(float));
+                            }
+                            kelimeayir=strtok(NULL,ayrac);
+                        }
+                        if(strtoksayac>3)
+                        {
+                            sprintf(asciihatatut[asciihatatutsayaci],"%s deki dosyadaki %d. satirda x y z degelerinden baska deger girilmistir.\n",asciidosyaadi[i],satirsayisi);
+                            asciihatatutsayaci++;
+                        }
+                        if(strtoksayac<3)
+                        {
+                            sprintf(asciihatatut[asciihatatutsayaci],"%s deki dosyadaki %d. satirda x y z degerleri eksik girilmistir.",asciidosyaadi[i],satirsayisi);
+                            asciihatatutsayaci++;
+                        }
+                    }
+                }
+            }
+        }
+
+        if(satirsayisi-5!=liste1[i].baslikdegeri.noktasayisi)
+        {
+            sprintf(asciihatatut[asciihatatutsayaci],"%s dosyasinda ki nokta sayisi verilen nokta sayisina esit degildir.\n",asciidosyaadi[i]);
+            hatakontrolsayaci=1;
+            asciihatatutsayaci++;
+        }
+
+        if(hatakontrolsayaci==0)
+        {
+            strcpy(saglamasciidosyaadi[saglamasciisayac],asciidosyaadi[i]);
+            saglamasciisayac++;
+        }
+
+        fclose(dosya);
+    }
+}
+
+void menuisleri()
+{
+    int i,j,k,a,x;
+    float cx,cy,cz,cr;
+
+// ascii output dosya olusturma
+    FILE *outputdosyaascii;
+    char outputasciidosyaadi[50][50];
+
+    for(i=0; i<saglamasciisayac; i++)
+    {
+        char path[60]="output-";
+        strcat(path,saglamasciidosyaadi[i]);
+        strcpy(outputasciidosyaadi[i],path);
+        outputdosyaascii = fopen(outputasciidosyaadi[i],"w");
+        fclose(outputdosyaascii);
+    }
+
+// binary output dosya olusturma
+    FILE *outputdosyabinary;
+    char outputbinarydosyaadi[50][50];
+
+    for(i=0; i<saglambinarysayac; i++)
+    {
+        char path2[60]="output-";
+        strcat(path2,saglambinarydosyaadi[i]);
+        strcpy(outputbinarydosyaadi[i],path2);
+        outputdosyabinary = fopen(outputbinarydosyaadi[i],"wb");
+        fclose(outputdosyabinary);
+    }
+    printf("1' den 6'ya kadar giris yapiniz\n\n");
+
+// islem menusune giris kismi
+
+    int islemkontorl=0;
+    while(1)
+    {
+        int hatakontrolsayaci;
+        int secim;
+        printf("Yapicaginiz islemi seciniz: \n");
+        scanf("%d",&secim);
+
+        fflush(stdin);
+        switch(secim)
+        {
+
+        case 1:
+
+// ascii 1. islem
+            islemkontorl=1;
+            for(i=0; i<asciihatatutsayaci; i++)
+            {
+                printf("%s \n",asciihatatut[i]);
+            }
+
+            for(a=0; a<saglamasciisayac; a++)
+            {
+                outputdosyaascii = fopen(outputasciidosyaadi[a],"a");
+                fprintf(outputdosyaascii,"Islem 1: \n");
+                fprintf(outputdosyaascii,"Tum Dosyalar Uyumludur\n\n");
+                fclose(outputdosyaascii);
+            }
+
+// binary 1. islem
+            for(i=0; i<binaryhatautsayaci; i++)
+            {
+                printf("%s \n",binaryhatatut[i]);
+            }
+
+            for(a=0; a<saglambinarysayac; a++)
+            {
+                outputdosyabinary = fopen(outputbinarydosyaadi[a],"ab");
+                fprintf(outputdosyabinary,"Islem 1: \n");
+                fprintf(outputdosyabinary,"Tum Dosyalar Uyumludur.\n\n");
+                fclose(outputdosyabinary);
+            }
+
+            break;
+
+        case 2:
+
+            if(islemkontorl!=1)
+            {
+
+                printf("ilk islem olarak islem 1 yapilmasi gerekmektedir tekrar seciniz.\n");
+                continue;
+
+            }
+// ascii 2. islem
+            for(i=0; i<asciisayacbilgisi; i++)
+            {
+                for(x=0; x<saglamasciisayac; x++)
+                {
+                    if(strcmp(saglamasciidosyaadi[x],asciidosyaadi[i])==0)
+                    {
+                        int jtut=0,ktut=0;
+                        int jtut2=0,ktut2=0;
+                        double enbuyuk=0,enkucuk=3000;
+                        double deger=0;
+                        double sonuc=0;
+                        unsigned long sayac=0;
+
+                        for(j=0; j<liste1[i].baslikdegeri.noktasayisi; j++)
+                        {
+                            for(k=j+1; k<liste1[i].baslikdegeri.noktasayisi; k++)
+                            {
+                                deger = pow((liste1[i].xdeger[j]-liste1[i].xdeger[k]),2) + pow((liste1[i].ydeger[j]-liste1[i].ydeger[k]),2) + pow((liste1[i].zdeger[j]-liste1[i].zdeger[k]),2);
+                                deger = sqrt(fabs(deger));
+
+                                if(deger>enbuyuk)
+                                {
+                                    enbuyuk=deger;
+                                    jtut=j;
+                                    ktut=k;
+                                }
+                                if(deger<enkucuk)
+                                {
+                                    enkucuk=deger;
+                                    jtut2=j;
+                                    ktut2=k;
+                                }
+                            }
+                        }
+
+                        if(strcmp(liste1[i].baslikdegeri.alanlar,"ALANLAR x y z r g b\n")==0)
+                        {
+                            outputdosyaascii = fopen(outputasciidosyaadi[x],"a");
+                            fprintf(outputdosyaascii,"Islem 2: \n");
+                            fprintf(outputdosyaascii,"En Uzak Noktalar: \n");
+                            fprintf(outputdosyaascii,"%f %f %f %d %d %d\n",liste1[i].xdeger[jtut],liste1[i].ydeger[jtut],liste1[i].zdeger[jtut],liste1[i].rdeger[jtut],liste1[i].gdeger[jtut],liste1[i].bdeger[jtut]);
+                            fprintf(outputdosyaascii,"%f %f %f %d %d %d\n",liste1[i].xdeger[ktut],liste1[i].ydeger[ktut],liste1[i].zdeger[ktut],liste1[i].rdeger[ktut],liste1[i].gdeger[ktut],liste1[i].bdeger[ktut]);
+                            fprintf(outputdosyaascii,"En Yakin Noktalar: \n");
+                            fprintf(outputdosyaascii,"%f %f %f %d %d %d\n",liste1[i].xdeger[jtut2],liste1[i].ydeger[jtut2],liste1[i].zdeger[jtut2],liste1[i].rdeger[jtut2],liste1[i].gdeger[jtut2],liste1[i].bdeger[jtut2]);
+                            fprintf(outputdosyaascii,"%f %f %f %d %d %d\n\n",liste1[i].xdeger[ktut2],liste1[i].ydeger[ktut2],liste1[i].zdeger[ktut2],liste1[i].rdeger[ktut2],liste1[i].gdeger[ktut2],liste1[i].bdeger[ktut2]);
+                            fclose(outputdosyaascii);
+                        }
+                        if(strcmp(liste1[i].baslikdegeri.alanlar,"ALANLAR x y z\n")==0)
+                        {
+                            outputdosyaascii= fopen(outputasciidosyaadi[x],"a");
+                            fprintf(outputdosyaascii,"Islem 2: \n");
+                            fprintf(outputdosyaascii,"En Uzak Noktalar: \n");
+                            fprintf(outputdosyaascii,"%f %f %f\n",liste1[i].xdeger[jtut],liste1[i].ydeger[jtut],liste1[i].zdeger[jtut]);
+                            fprintf(outputdosyaascii,"%f %f %f\n",liste1[i].xdeger[ktut],liste1[i].ydeger[ktut],liste1[i].zdeger[ktut]);
+                            fprintf(outputdosyaascii,"En Yakin Noktalar: \n");
+                            fprintf(outputdosyaascii,"%f %f %f\n",liste1[i].xdeger[jtut2],liste1[i].ydeger[jtut2],liste1[i].zdeger[jtut2]);
+                            fprintf(outputdosyaascii,"%f %f %f\n\n",liste1[i].xdeger[ktut2],liste1[i].ydeger[ktut2],liste1[i].zdeger[ktut2]);
+                            fclose(outputdosyaascii);
+                        }
+                    }
+                }
+            }
+
+// binary 2. islem
+            for(i=0; i<binarysayacbilgisi; i++)
+            {
+                for(x=0; x<saglambinarysayac; x++)
+                {
+                    if(strcmp(saglambinarydosyaadi[x],binarydosyaadi[i])==0)
+                    {
+                        int jtut=0,ktut=0;
+                        int jtut2=0,ktut2=0;
+                        double enbuyuk=0,enkucuk=3000;
+                        double deger=0;
+                        double sonuc=0;
+                        unsigned long sayac=0;
+
+                        for(j=0; j<liste2[i].baslikdegeri.noktasayisi; j++)
+                        {
+                            for(k=j+1; k<liste2[i].baslikdegeri.noktasayisi; k++)
+                            {
+                                deger = pow((liste2[i].xdeger[j]-liste2[i].xdeger[k]),2) + pow((liste2[i].ydeger[j]-liste2[i].ydeger[k]),2) + pow((liste2[i].zdeger[j]-liste2[i].zdeger[k]),2);
+                                deger = sqrt(fabs(deger));
+
+                                if(deger>enbuyuk)
+                                {
+                                    enbuyuk=deger;
+                                    jtut=j;
+                                    ktut=k;
+                                }
+                                if(deger<enkucuk)
+                                {
+                                    enkucuk=deger;
+                                    jtut2=j;
+                                    ktut2=k;
+                                }
+                            }
+                        }
+
+                        if(strcmp(liste2[i].baslikdegeri.alanlar,"ALANLAR x y z r g b\n")==0)
+                        {
+                            struct rgbbinarycek binyaz;
+                            outputdosyabinary = fopen(outputbinarydosyaadi[x],"ab");
+                            fprintf(outputdosyabinary,"Islem 2: \n");
+                            fprintf(outputdosyabinary,"En Uzak Noktalar: \n");
+                            binyaz.x=liste2[i].xdeger[jtut];
+                            binyaz.y=liste2[i].ydeger[jtut];
+                            binyaz.z=liste2[i].zdeger[jtut];
+                            binyaz.r=liste2[i].rdeger[jtut];
+                            binyaz.g=liste2[i].gdeger[jtut];
+                            binyaz.b=liste2[i].bdeger[jtut];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            binyaz.x=liste2[i].xdeger[ktut];
+                            binyaz.y=liste2[i].ydeger[ktut];
+                            binyaz.z=liste2[i].zdeger[ktut];
+                            binyaz.r=liste2[i].rdeger[ktut];
+                            binyaz.g=liste2[i].gdeger[ktut];
+                            binyaz.b=liste2[i].bdeger[ktut];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            fwrite("\n",1,1,outputdosyabinary);
+                            fprintf(outputdosyabinary,"En Yakin Noktalar: \n");
+                            binyaz.x=liste2[i].xdeger[jtut2];
+                            binyaz.y=liste2[i].ydeger[jtut2];
+                            binyaz.z=liste2[i].zdeger[jtut2];
+                            binyaz.r=liste2[i].rdeger[jtut2];
+                            binyaz.g=liste2[i].gdeger[jtut2];
+                            binyaz.b=liste1[i].bdeger[jtut2];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            binyaz.x=liste2[i].xdeger[ktut2];
+                            binyaz.y=liste2[i].ydeger[ktut2];
+                            binyaz.z=liste2[i].zdeger[ktut2];
+                            binyaz.r=liste2[i].rdeger[ktut2];
+                            binyaz.g=liste2[i].gdeger[ktut2];
+                            binyaz.b=liste1[i].bdeger[ktut2];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            fwrite("\n\n",2,1,outputdosyabinary);
+                            fclose(outputdosyabinary);
+                        }
+                        if(strcmp(liste2[i].baslikdegeri.alanlar,"ALANLAR x y z\n")==0)
+                        {
+                            puts("osman");
+                            struct binarycek binyaz;
+                            outputdosyabinary= fopen(outputbinarydosyaadi[x],"ab");
+                            fprintf(outputdosyabinary,"Islem 2: \n");
+                            fprintf(outputdosyabinary,"En Uzak Noktalar: \n");
+                            binyaz.cx=liste2[i].xdeger[jtut];
+                            binyaz.cy=liste2[i].ydeger[jtut];
+                            binyaz.cz=liste2[i].zdeger[jtut];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            binyaz.cx=liste2[i].xdeger[ktut];
+                            binyaz.cy=liste2[i].ydeger[ktut];
+                            binyaz.cz=liste2[i].zdeger[ktut];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            fwrite("\n",1,1,outputdosyabinary);
+                            fprintf(outputdosyabinary,"En Yakin Noktalar: \n");
+                            binyaz.cx=liste2[i].xdeger[jtut2];
+                            binyaz.cy=liste2[i].ydeger[jtut2];
+                            binyaz.cz=liste2[i].zdeger[jtut2];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            binyaz.cx=liste2[i].xdeger[ktut2];
+                            binyaz.cy=liste2[i].ydeger[ktut2];
+                            binyaz.cz=liste2[i].zdeger[ktut2];
+                            fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                            fwrite("\n\n",2,1,outputdosyabinary);
+                            fclose(outputdosyabinary);
+                        }
+                    }
+                }
+            }
+            break;
+
+        case 3:
+
+            if(islemkontorl!=1)
+            {
+
+                printf("ilk islem olarak islem 1 yapilmasi gerekmektedir tekrar seciniz.\n");
+                continue;
+
+            }
+
+            // ascii islem 3
+            for(i=0; i<asciisayacbilgisi; i++)
+            {
+                for(x=0; x<saglamasciisayac; x++)
+                {
+                    if(strcmp(saglamasciidosyaadi[x],asciidosyaadi[i])==0)
+                    {
+                        double minx=1000, miny=1000, minz=1000, maxx=0, maxy=0, maxz=0, uzunluk;
+
+                        for(k=0; k<liste1[i].baslikdegeri.noktasayisi; k++)
+                        {
+                            if(liste1[i].xdeger[k]<minx)
+                            {
+                                minx=liste1[i].xdeger[k];
+                            }
+                            if(liste1[i].ydeger[k]<miny)
+                            {
+                                miny=liste1[i].ydeger[k];
+                            }
+                            if(liste1[i].zdeger[k]<minz)
+                            {
+                                minz=liste1[i].zdeger[k];
+                            }
+                        }
+                        for(k=0; k<liste1[i].baslikdegeri.noktasayisi; k++)
+                        {
+                            if(liste1[i].xdeger[k]>maxx)
+                            {
+                                maxx=liste1[i].xdeger[k];
+                            }
+                            if(liste1[i].ydeger[k]>maxy)
+                            {
+                                maxy=liste1[i].ydeger[k];
+                            }
+                            if(liste1[i].zdeger[k]>maxz)
+                            {
+                                maxz=liste1[i].zdeger[k];
+                            }
+                        }
+
+                        uzunluk=maxx-minx;
+                        if( (maxy-miny) > uzunluk )
+                        {
+                            uzunluk= maxy-miny;
+                        }
+                        if( (maxz-minz) > uzunluk )
+                        {
+                            uzunluk= maxz-minz;
+                        }
+
+                        outputdosyaascii = fopen(outputasciidosyaadi[x],"a");
+                        fprintf(outputdosyaascii,"Islem 3: \n");
+                        fprintf(outputdosyaascii,"%f %f %f\n", maxx-uzunluk, maxy, maxz );
+                        fprintf(outputdosyaascii,"%f %f %f\n", maxx, maxy, maxz );
+                        fprintf(outputdosyaascii,"%f %f %f\n", maxx, maxy-uzunluk, maxz );
+                        fprintf(outputdosyaascii,"%f %f %f\n", maxx-uzunluk, maxy-uzunluk, maxz );
+                        fprintf(outputdosyaascii,"%f %f %f\n", maxx-uzunluk, maxy, maxz-uzunluk );
+                        fprintf(outputdosyaascii,"%f %f %f\n", maxx, maxy, maxz-uzunluk );
+                        fprintf(outputdosyaascii,"%f %f %f\n", maxx, maxy-uzunluk, maxz-uzunluk );
+                        fprintf(outputdosyaascii,"%f %f %f\n\n", maxx-uzunluk, maxy-uzunluk, maxz-uzunluk );
+                        fclose(outputdosyaascii);
+                    }
+                }
+            }
+
+            // binary islem 3
+            for(i=0; i<binarysayacbilgisi; i++)
+            {
+                for(x=0; x<saglambinarysayac; x++)
+                {
+                    if(strcmp(saglambinarydosyaadi[x],binarydosyaadi[i])==0)
+                    {
+                        double minx=1000, miny=1000, minz=1000, maxx=0, maxy=0, maxz=0, uzunluk;
+
+                        for(k=0; k<liste2[i].baslikdegeri.noktasayisi; k++)
+                        {
+                            if(liste2[i].xdeger[k]<minx)
+                            {
+                                minx=liste2[i].xdeger[k];
+                            }
+                            if(liste2[i].ydeger[k]<miny)
+                            {
+                                miny=liste2[i].ydeger[k];
+                            }
+                            if(liste2[i].zdeger[k]<minz)
+                            {
+                                minz=liste2[i].zdeger[k];
+                            }
+                        }
+                        for(k=0; k<liste2[i].baslikdegeri.noktasayisi; k++)
+                        {
+                            if(liste2[i].xdeger[k]>maxx)
+                            {
+                                maxx=liste2[i].xdeger[k];
+                            }
+                            if(liste2[i].ydeger[k]>maxy)
+                            {
+                                maxy=liste2[i].ydeger[k];
+                            }
+                            if(liste2[i].zdeger[k]>maxz)
+                            {
+                                maxz=liste2[i].zdeger[k];
+                            }
+                        }
+
+                        uzunluk=maxx-minx;
+                        if( (maxy-miny) > uzunluk )
+                        {
+                            uzunluk= maxy-miny;
+                        }
+                        if( (maxz-minz) > uzunluk )
+                        {
+                            uzunluk= maxz-minz;
+                        }
+                        struct binarycek binyaz;
+                        outputdosyabinary=fopen(outputbinarydosyaadi[x],"ab");
+                        fprintf(outputdosyabinary,"Islem 3: \n");
+                        binyaz.cx=maxx-uzunluk;
+                        binyaz.cy=maxy;
+                        binyaz.cz=maxz;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n",1,1,outputdosyabinary);
+                        binyaz.cx=maxx;
+                        binyaz.cy=maxy;
+                        binyaz.cz=maxz;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n",1,1,outputdosyabinary);
+                        binyaz.cx=maxx;
+                        binyaz.cy=maxy-uzunluk;
+                        binyaz.cz=maxz;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n",1,1,outputdosyabinary);
+                        binyaz.cx=maxx-uzunluk;
+                        binyaz.cy=maxy-uzunluk;
+                        binyaz.cz=maxz;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n",1,1,outputdosyabinary);
+                        binyaz.cx=maxx-uzunluk;
+                        binyaz.cy=maxy;
+                        binyaz.cz=maxz-uzunluk;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n",1,1,outputdosyabinary);
+                        binyaz.cx=maxx;
+                        binyaz.cy=maxy;
+                        binyaz.cz=maxz-uzunluk;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n",1,1,outputdosyabinary);
+                        binyaz.cx=maxx;
+                        binyaz.cy=maxy-uzunluk;
+                        binyaz.cz=maxz-uzunluk;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n",1,1,outputdosyabinary);
+                        binyaz.cx=maxx-uzunluk;
+                        binyaz.cy=maxy-uzunluk;
+                        binyaz.cz=maxz-uzunluk;
+                        fwrite(&binyaz,sizeof(binyaz),1,outputdosyabinary);
+                        fwrite("\n\n",2,1,outputdosyabinary);
+                        fclose(outputdosyabinary);
+                    }
+                }
+            }
+            break;
+
+        case 4:
+
+            if(islemkontorl!=1)
+            {
+
+                printf("ilk islem olarak islem 1 yapilmasi gerekmektedir tekrar seciniz.\n");
+                continue;
+
+            }
+            printf("Kupun x y z kordinatlarini ve yaricapini giriniz:\n");
+            printf("cx giriniz : ");
+            scanf("%f",&cx);
+            fflush(stdin);
+            printf("cy giriniz : ");
+            scanf("%f",&cy);
+            fflush(stdin);
+            printf("cz giriniz : ");
+            scanf("%f",&cz);
+            fflush(stdin);
+            printf("cr giriniz : ");
+            scanf("%f",&cr);
+            fflush(stdin);
+
+// ascii islem 4
+            for(i=0; i<asciisayacbilgisi; i++)
+            {
+                for(k=0; k<saglamasciisayac; k++)
+                {
+                    if(strcmp(saglamasciidosyaadi[k],asciidosyaadi[i])==0)
+                    {
+                        outputdosyaascii = fopen(outputasciidosyaadi[k],"a");
+                        fprintf(outputdosyaascii,"Islem 4: \n");
+                        fprintf(outputdosyaascii,"%f = (kullanicidan alinan kürenin x degeri)\n",cx);
+                        fprintf(outputdosyaascii,"%f = (kullanicidan alinan kürenin y degeri)\n",cy);
+                        fprintf(outputdosyaascii,"%f = (kullanicidan alinan kürenin z degeri)\n",cz);
+                        fprintf(outputdosyaascii,"%f = (kullanicidan alinan kürenin r degeri)\n",cr);
+                        fprintf(outputdosyaascii,liste1[i].baslikdegeri.alanlar);
+                        fprintf(outputdosyaascii,liste1[i].baslikdegeri.noktalar);
+                        fprintf(outputdosyaascii," %d \n",liste1[i].baslikdegeri.noktasayisi);
+                        fprintf(outputdosyaascii,liste1[i].baslikdegeri.dataturu);
+
+                        for(x=0; x<liste1[i].baslikdegeri.noktasayisi; x++)
+                        {
+                            double crkare=pow(cr,2);
+                            double yaricapsonucukaresi=0;
+                            yaricapsonucukaresi= pow((liste1[i].xdeger[x]-cx),2)+pow((liste1[i].ydeger[x]-cy),2)+pow((liste1[i].zdeger[x]-cz),2);
+
+                            if(yaricapsonucukaresi<=crkare)
+                            {
+                                if(strcmp(liste1[i].baslikdegeri.alanlar,"ALANLAR x y z\n")==0)
+                                {
+                                    fprintf(outputdosyaascii,"%f %f %f\n",liste1[i].xdeger[x],liste1[i].ydeger[x],liste1[i].zdeger[x]);
+                                }
+                                if(strcmp(liste1[i].baslikdegeri.alanlar,"ALANLAR x y z r g b\n")==0)
+                                {
+                                    fprintf(outputdosyaascii,"%f %f %f %d %d %d\n",liste1[i].xdeger[x],liste1[i].ydeger[x],liste1[i].zdeger[x],liste1[i].rdeger[x],liste1[i].gdeger[x],liste1[i].bdeger[x]);
+                                }
+                            }
+                        }
+                        fclose(outputdosyaascii);
+                    }
+                }
+            }
+
+//binary islem 4
+            for(i=0; i<binarysayacbilgisi; i++)
+            {
+                for(k=0; k<saglambinarysayac; k++)
+                {
+                    if(strcmp(saglambinarydosyaadi[k],binarydosyaadi[i])==0)
+                    {
+                        outputdosyabinary = fopen(outputbinarydosyaadi[k],"ab");
+                        fprintf(outputdosyabinary,"Islem 4: \n");
+                        fprintf(outputdosyabinary,"%f = (kullanicidan alinan kürenin x degeri)\n",cx);
+                        fprintf(outputdosyabinary,"%f = (kullanicidan alinan kürenin y degeri)\n",cy);
+                        fprintf(outputdosyabinary,"%f = (kullanicidan alinan kürenin z degeri)\n",cz);
+                        fprintf(outputdosyabinary,"%f = (kullanicidan alinan kürenin r degeri)\n",cr);
+                        fprintf(outputdosyabinary,liste2[i].baslikdegeri.alanlar);
+                        fprintf(outputdosyabinary,liste2[i].baslikdegeri.noktalar);
+                        fprintf(outputdosyabinary," %d \n",liste2[i].baslikdegeri.noktasayisi);
+                        fprintf(outputdosyabinary,liste2[i].baslikdegeri.dataturu);
+
+                        for(x=0; x<liste2[i].baslikdegeri.noktasayisi; x++)
+                        {
+                            double crkare=pow(cr,2);
+                            double yaricapsonucukaresi=0;
+                            yaricapsonucukaresi= pow((liste2[i].xdeger[x]-cx),2)+pow((liste2[i].ydeger[x]-cy),2)+pow((liste2[i].zdeger[x]-cz),2);
+
+                            if(yaricapsonucukaresi<=crkare)
+                            {
+                                if(strcmp(liste2[i].baslikdegeri.alanlar,"ALANLAR x y z\n")==0)
+                                {
+                                    float zx,zy,zz;
+                                    zx= liste2[i].xdeger[x];
+                                    zy= liste2[i].ydeger[x];
+                                    zz= liste2[i].zdeger[x];
+                                    fwrite(&zx,sizeof(float),1,outputdosyabinary);
+                                    fwrite(" ",1,1,outputdosyabinary);
+                                    fwrite(&zy,sizeof(float),1,outputdosyabinary);
+                                    fwrite(" ",1,1,outputdosyabinary);
+                                    fwrite(&zz,sizeof(float),1,outputdosyabinary);
+                                    fwrite("\n\n",2,1,outputdosyabinary);
+                                }
+                                if(strcmp(liste2[i].baslikdegeri.alanlar,"ALANLAR x y z r g b\n")==0)
+                                {
+                                    float vx,vy,vz;
+                                    int vr,vg,vb;
+                                    vx= liste2[i].xdeger[x];
+                                    vy= liste2[i].ydeger[x];
+                                    vz= liste2[i].zdeger[x];
+                                    vr= liste2[i].rdeger[x];
+                                    vg= liste2[i].gdeger[x];
+                                    vb= liste2[i].bdeger[x];
+                                    fwrite(&vx,sizeof(float),1,outputdosyabinary);
+                                    fwrite(" ",1,1,outputdosyabinary);
+                                    fwrite(&vy,sizeof(float),1,outputdosyabinary);
+                                    fwrite(" ",1,1,outputdosyabinary);
+                                    fwrite(&vz,sizeof(float),1,outputdosyabinary);
+                                    fwrite(" ",1,1,outputdosyabinary);
+                                    fwrite(&vr,sizeof(int),1,outputdosyabinary);
+                                    fwrite(" ",1,1,outputdosyabinary);
+                                    fwrite(&vg,sizeof(int),1,outputdosyabinary);
+                                    fwrite(" ",1,1,outputdosyabinary);
+                                    fwrite(&vb,sizeof(int),1,outputdosyabinary);
+                                    fprintf(outputdosyabinary,"\n\n");
+                                }
+                            }
+                        }
+                        fclose(outputdosyabinary);
+                    }
+                }
+            }
+            break;
+
+        case 5:
+
+            if(islemkontorl!=1)
+            {
+
+                printf("ilk islem olarak islem 1 yapilmasi gerekmektedir tekrar seciniz.\n");
+                continue;
+
+            }
+//ascii islem 5
+            for(i=0; i<asciisayacbilgisi; i++)
+            {
+                for(x=0; x<saglamasciisayac; x++)
+                {
+                    if(strcmp(saglamasciidosyaadi[x],asciidosyaadi[i])==0)
+                    {
+                        float ortalamadeger=0;
+                        double deger=0;
+                        double sonuc=0;
+                        unsigned long sayac=0;
+                        for(j=0; j<liste1[i].baslikdegeri.noktasayisi; j++)
+                        {
+                            for(k=j+1; k<liste1[i].baslikdegeri.noktasayisi; k++)
+                            {
+                                deger = pow((liste1[i].xdeger[j]-liste1[i].xdeger[k]),2) +
+                                        pow((liste1[i].ydeger[j]-liste1[i].ydeger[k]),2) +
+                                        pow((liste1[i].zdeger[j]-liste1[i].zdeger[k]),2);
+                                deger = sqrt(fabs(deger));
+                                sonuc += deger;
+                                sayac++;
+                            }
+                        }
+                        ortalamadeger = sonuc / sayac;
+                        outputdosyaascii = fopen(outputasciidosyaadi[x],"a");
+                        fprintf(outputdosyaascii,"Islem 5: \n");
+                        fprintf(outputdosyaascii,"%f\n\n",ortalamadeger);
+                        fclose(outputdosyaascii);
+                    }
+
+                }
+            }
+
+//binary islem 5
+            for(i=0; i<binarysayacbilgisi; i++)
+            {
+                for(x=0; x<saglambinarysayac; x++)
+                {
+                    if(strcmp(saglambinarydosyaadi[x],binarydosyaadi[i])==0)
+                    {
+                        float ortalamadeger=0;
+                        double deger=0;
+                        double sonuc=0;
+                        unsigned long sayac=0;
+                        for(j=0; j<liste2[i].baslikdegeri.noktasayisi; j++)
+                        {
+                            for(k=j+1; k<liste2[i].baslikdegeri.noktasayisi; k++)
+                            {
+                                deger = pow((liste2[i].xdeger[j]-liste2[i].xdeger[k]),2)+
+                                        pow((liste2[i].ydeger[j]-liste2[i].ydeger[k]),2)+
+                                        pow((liste2[i].zdeger[j]-liste2[i].zdeger[k]),2);
+                                deger = sqrt(fabs(deger));
+                                sonuc += deger;
+                                sayac++;
+                            }
+                        }
+                        ortalamadeger = sonuc / sayac;
+                        outputdosyabinary = fopen(outputbinarydosyaadi[x],"ab");
+                        fprintf(outputdosyabinary,"Islem 5: \n");
+                        fwrite(&ortalamadeger,sizeof(float),1,outputdosyabinary);
+                        fprintf(outputdosyabinary,"\n\n");
+                        fclose(outputdosyabinary);
+                    }
+                }
+            }
+
+            break;
+
+        case 6:
+
+            exit(1);
+
+            break;
+
+        default:
+
+            printf("hatali giris yaptiniz \n");
+            printf("tekrar giriniz \n");
+            break;
+        }
+    }
+}
+
